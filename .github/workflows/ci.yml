@@ -1,0 +1,55 @@
+---
+
+name: ci
+
+on:
+  push:
+
+env:
+  TARGET_PLATFORMS: |-
+    linux/amd64
+    linux/arm64
+  BUILD_ARGS: |-
+    DISTRIBUTION=trixie
+    SNAPCAST_VERSION=0.34.0
+    SNAPWEB_VERSION=0.9.3
+    LIBRESPOT_VERSION=v0.8.0
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build snapserver image
+        uses: docker/build-push-action@v6
+        with:
+          context: "{{defaultContext}}:snapserver"
+          platforms: ${{ env.TARGET_PLATFORMS }}
+          build-args: ${{ env.BUILD_ARGS }}
+          tags: |-
+            ghcr.io/rookies/snapserver:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'review' }}
+            ghcr.io/rookies/snapserver:latest
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+
+      - name: Build snapclient image
+        uses: docker/build-push-action@v6
+        with:
+          context: "{{defaultContext}}:snapclient"
+          platforms: ${{ env.TARGET_PLATFORMS }}
+          build-args: ${{ env.BUILD_ARGS }}
+          tags: |-
+            ghcr.io/rookies/snapclient:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'review' }}
+            ghcr.io/rookies/snapclient:latest
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
